@@ -287,7 +287,29 @@ defmodule Pinchflat.Downloading.MediaDownloadWorkerTest do
       perform_job(MediaDownloadWorker, %{id: media_item.id, force: true})
     end
 
-    test "sets force_overwrites runner option", %{media_item: media_item} do
+    test "resumes incomplete media when manually forced", %{media_item: media_item} do
+      assert is_nil(media_item.media_filepath)
+
+      expect(YtDlpRunnerMock, :run, 3, fn
+        _url, :get_downloadable_status, _opts, _ot, _addl ->
+          {:ok, "{}"}
+
+        _url, :download, opts, _ot, _addl ->
+          assert :no_force_overwrites in opts
+          refute :force_overwrites in opts
+
+          {:ok, render_metadata(:media_metadata)}
+
+        _url, :download_thumbnail, _opts, _ot, _addl ->
+          {:ok, ""}
+      end)
+
+      perform_job(MediaDownloadWorker, %{id: media_item.id, force: true})
+    end
+
+    test "overwrites existing downloaded media when explicitly forced", %{media_item: media_item} do
+      {:ok, _} = Media.update_media_item(media_item, %{media_filepath: "already-downloaded.mp4"})
+
       expect(YtDlpRunnerMock, :run, 3, fn
         _url, :get_downloadable_status, _opts, _ot, _addl ->
           {:ok, "{}"}
@@ -342,7 +364,7 @@ defmodule Pinchflat.Downloading.MediaDownloadWorkerTest do
       perform_job(MediaDownloadWorker, %{id: media_item.id, quality_upgrade?: true})
     end
 
-    test "sets force_overwrites runner option", %{media_item: media_item} do
+    test "sets force_overwrites runner option for quality upgrades", %{media_item: media_item} do
       expect(YtDlpRunnerMock, :run, 3, fn
         _url, :get_downloadable_status, _opts, _ot, _addl ->
           {:ok, "{}"}
@@ -357,7 +379,7 @@ defmodule Pinchflat.Downloading.MediaDownloadWorkerTest do
           {:ok, ""}
       end)
 
-      perform_job(MediaDownloadWorker, %{id: media_item.id, force: true})
+      perform_job(MediaDownloadWorker, %{id: media_item.id, quality_upgrade?: true})
     end
 
     test "deletes old files if the media item has been updated" do
