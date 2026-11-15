@@ -88,6 +88,22 @@ defmodule Pinchflat.Downloading.DownloadingHelpersTest do
                DownloadingHelpers.enqueue_pending_download_tasks_with_report(source)
     end
 
+    test "counts retryable jobs without resetting their attempts" do
+      source = source_fixture()
+      media_item = media_item_fixture(source_id: source.id, media_filepath: nil)
+      assert {:ok, task} = MediaDownloadWorker.kickoff_with_task(media_item)
+
+      job = Repo.get!(Oban.Job, task.job_id)
+      {:ok, _} = job |> Ecto.Changeset.change(state: "retryable", attempt: 4) |> Repo.update()
+
+      assert %{enqueued: 0, already_queued: 1, failed: 0} =
+               DownloadingHelpers.enqueue_pending_download_tasks_with_report(source)
+
+      updated_job = Repo.get!(Oban.Job, task.job_id)
+      assert updated_job.state == "retryable"
+      assert updated_job.attempt == 4
+    end
+
     test "reports zero when media downloads are disabled for a source" do
       source = source_fixture(download_media: false)
       _item = media_item_fixture(source_id: source.id, media_filepath: nil)
