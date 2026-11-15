@@ -28,6 +28,19 @@ defmodule Pinchflat.Downloading.ProgressOutputTest do
              ProgressTracker.snapshot()[@media_id]
   end
 
+  test "System.cmd streams line-based progress through the Collectable" do
+    {output, 0} =
+      System.cmd(
+        "/usr/bin/printf",
+        ["%s\\n", ~s(PINCHFLAT_PROGRESS:{"status":"downloading","downloaded_bytes":2048}), "warning"],
+        into: %ProgressOutput{media_item_id: @media_id},
+        lines: 1024
+      )
+
+    assert output == "warning"
+    assert %{downloaded_bytes: 2048} = ProgressTracker.snapshot()[@media_id]
+  end
+
   test "keeps malformed progress lines out of diagnostics" do
     output = Enum.into(["PINCHFLAT_PROGRESS:bad-json", "warning"], %ProgressOutput{media_item_id: @media_id})
 
