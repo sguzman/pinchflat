@@ -72,6 +72,7 @@ defmodule Pinchflat.Downloading.DownloadingHelpersTest do
       newly_queued = media_item_fixture(source_id: source.id, media_filepath: nil)
 
       assert {:ok, _} = MediaDownloadWorker.kickoff_with_task(already_queued)
+
       assert %{enqueued: 1, already_queued: 1, failed: 0} =
                DownloadingHelpers.enqueue_pending_download_tasks_with_report(source)
 
@@ -84,6 +85,7 @@ defmodule Pinchflat.Downloading.DownloadingHelpersTest do
       media_item = media_item_fixture(source_id: source.id, media_filepath: nil)
 
       assert {:ok, _} = MediaDownloadWorker.kickoff_with_task(media_item)
+
       assert %{enqueued: 0, already_queued: 1, failed: 0} =
                DownloadingHelpers.enqueue_pending_download_tasks_with_report(source)
     end
@@ -110,6 +112,7 @@ defmodule Pinchflat.Downloading.DownloadingHelpersTest do
 
       assert %{enqueued: 0, already_queued: 0, failed: 0} =
                DownloadingHelpers.enqueue_pending_download_tasks_with_report(source)
+
       refute_enqueued(worker: MediaDownloadWorker)
     end
   end
