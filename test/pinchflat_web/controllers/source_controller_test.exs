@@ -180,6 +180,24 @@ defmodule PinchflatWeb.SourceControllerTest do
       conn = post(conn, ~p"/sources/#{source.id}/force_download_pending")
       assert redirected_to(conn) == ~p"/sources/#{source.id}"
     end
+
+    test "reports newly queued tasks instead of a generic success", %{conn: conn} do
+      source = source_fixture()
+      _media_item = media_item_fixture(source_id: source.id, media_filepath: nil)
+
+      conn = post(conn, ~p"/sources/#{source.id}/force_download_pending")
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "1 new jobs queued"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "0 already queued"
+    end
+
+    test "reports when download media is disabled", %{conn: conn} do
+      source = source_fixture(download_media: false)
+
+      conn = post(conn, ~p"/sources/#{source.id}/force_download_pending")
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Download Media is disabled"
+    end
   end
 
   describe "force_redownload" do
