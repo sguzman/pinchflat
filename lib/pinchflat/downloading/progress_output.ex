@@ -30,10 +30,11 @@ end
 
 defimpl Collectable, for: Pinchflat.Downloading.ProgressOutput do
   def into(original) do
-    {original, fn
-      state, {:cont, line} -> Pinchflat.Downloading.ProgressOutput.consume(state, line)
-      state, :done -> Pinchflat.Downloading.ProgressOutput.output(state)
-      _state, :halt -> :ok
-    end}
+    {original,
+     fn
+       state, {:cont, line} -> Pinchflat.Downloading.ProgressOutput.consume(state, line)
+       state, :done -> Pinchflat.Downloading.ProgressOutput.output(state)
+       _state, :halt -> :ok
+     end}
   end
 end
