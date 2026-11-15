@@ -32,7 +32,8 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
         url, :download, _opts, ot, addl ->
           assert url == media_item.original_url
           assert ot == "after_move:%()j"
-          assert [{:output_filepath, filepath} | _] = addl
+          assert {:ok, filepath} = Keyword.fetch(addl, :output_filepath)
+          assert Keyword.fetch!(addl, :progress_id) == media_item.id
           assert is_binary(filepath)
 
           {:ok, render_metadata(:media_metadata)}
@@ -213,7 +214,7 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
           {:ok, "{}"}
 
         _url, :download, _opts, _ot, addl ->
-          [{:output_filepath, filepath} | _] = addl
+          filepath = Keyword.fetch!(addl, :output_filepath)
           File.write(filepath, render_metadata(:media_metadata))
 
           {:error, message, 1}
@@ -230,7 +231,7 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
 
       expect(YtDlpRunnerMock, :run, 3, fn
         _url, :download, _opts, _ot, addl ->
-          [{:output_filepath, filepath} | _] = addl
+          filepath = Keyword.fetch!(addl, :output_filepath)
           File.write(filepath, render_metadata(:media_metadata))
 
           {:error, message, 1}
@@ -266,7 +267,7 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
     test "sets the last_error appropriately when recovered", %{media_item: media_item} do
       expect(YtDlpRunnerMock, :run, 3, fn
         _url, :download, _opts, _ot, addl ->
-          [{:output_filepath, filepath} | _] = addl
+          filepath = Keyword.fetch!(addl, :output_filepath)
           File.write(filepath, render_metadata(:media_metadata))
 
           {:error, "Unable to communicate with SponsorBlock", 1}
