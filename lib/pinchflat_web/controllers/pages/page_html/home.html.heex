@@ -56,7 +56,7 @@
         session: %{"media_state" => "pending"}
       )}
     </:tab>
-    <:tab title="Active Tasks" id="active-tasks">
+    <:tab title="Task Queue" id="active-tasks">
       {live_render(@conn, Pinchflat.Pages.JobTableLive)}
     </:tab>
   </.tabbed_layout>
