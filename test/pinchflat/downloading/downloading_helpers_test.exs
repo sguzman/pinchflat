@@ -65,6 +65,39 @@ defmodule Pinchflat.Downloading.DownloadingHelpersTest do
     end
   end
 
+  describe "enqueue_pending_download_tasks_with_report/1" do
+    test "reports newly enqueued media and existing jobs separately" do
+      source = source_fixture()
+      already_queued = media_item_fixture(source_id: source.id, media_filepath: nil)
+      newly_queued = media_item_fixture(source_id: source.id, media_filepath: nil)
+
+      assert {:ok, _} = MediaDownloadWorker.kickoff_with_task(already_queued)
+      assert %{enqueued: 1, already_queued: 1, failed: 0} =
+               DownloadingHelpers.enqueue_pending_download_tasks_with_report(source)
+
+      assert_enqueued(worker: MediaDownloadWorker, args: %{"id" => newly_queued.id})
+      assert length(all_enqueued(worker: MediaDownloadWorker)) == 2
+    end
+
+    test "reports zero new jobs when all media are already queued" do
+      source = source_fixture()
+      media_item = media_item_fixture(source_id: source.id, media_filepath: nil)
+
+      assert {:ok, _} = MediaDownloadWorker.kickoff_with_task(media_item)
+      assert %{enqueued: 0, already_queued: 1, failed: 0} =
+               DownloadingHelpers.enqueue_pending_download_tasks_with_report(source)
+    end
+
+    test "reports zero when media downloads are disabled for a source" do
+      source = source_fixture(download_media: false)
+      _item = media_item_fixture(source_id: source.id, media_filepath: nil)
+
+      assert %{enqueued: 0, already_queued: 0, failed: 0} =
+               DownloadingHelpers.enqueue_pending_download_tasks_with_report(source)
+      refute_enqueued(worker: MediaDownloadWorker)
+    end
+  end
+
   describe "dequeue_pending_download_tasks/1" do
     test "deletes all pending tasks for a source's media items" do
       source = source_fixture()
