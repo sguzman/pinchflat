@@ -305,6 +305,7 @@ defmodule Pinchflat.Downloading.MediaDownloadWorkerTest do
       end)
 
       perform_job(MediaDownloadWorker, %{id: media_item.id, force: true})
+      assert Repo.reload!(media_item).media_filepath
     end
 
     test "overwrites existing downloaded media when explicitly forced", %{media_item: media_item} do
