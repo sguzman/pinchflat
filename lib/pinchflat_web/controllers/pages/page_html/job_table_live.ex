@@ -20,7 +20,7 @@ defmodule Pinchflat.Pages.JobTableLive do
     <div>
       <div class="mb-4 flex items-center">
         <.icon_button icon_name="hero-arrow-path" class="h-10 w-10" phx-click="refresh_queue" tooltip="Refresh" />
-        <p class="ml-2">Showing up to 100 running or queued tasks. Scheduled times are eligibility times, not guaranteed start times.</p>
+        <p class="ml-2">Showing {length(@tasks)} running or queued tasks (up to 100). Scheduled times are eligibility times, not guaranteed start times.</p>
       </div>
       <div class="max-w-full overflow-x-auto">
         <.table rows={@tasks} table_class="text-white">
