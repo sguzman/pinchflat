@@ -115,12 +115,21 @@ defmodule PinchflatWeb.Sources.SourceController do
   end
 
   def force_download_pending(conn, %{"source_id" => id}) do
-    wrap_forced_action(
-      conn,
-      id,
-      "Forcing download of pending media items.",
-      &DownloadingHelpers.enqueue_pending_download_tasks/1
-    )
+    source = Sources.get_source!(id)
+    report = DownloadingHelpers.enqueue_pending_download_tasks_with_report(source)
+
+    message =
+      if source.download_media do
+        "Download Pending: #{report.enqueued} new jobs queued; " <>
+          "#{report.already_queued} already queued or retrying; " <>
+          "#{report.failed} failed to enqueue. Existing retry schedules are unchanged."
+      else
+        "Download Media is disabled for this source. No download jobs were queued."
+      end
+
+    conn
+    |> put_flash(:info, message)
+    |> redirect(to: ~p"/sources/#{source}")
   end
 
   def force_redownload(conn, %{"source_id" => id}) do
