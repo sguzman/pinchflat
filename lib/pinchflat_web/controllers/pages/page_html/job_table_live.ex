@@ -23,28 +23,28 @@ defmodule Pinchflat.Pages.JobTableLive do
         <p class="ml-2">Showing up to 100 running or queued tasks. Scheduled times are eligibility times, not guaranteed start times.</p>
       </div>
       <div class="max-w-full overflow-x-auto">
-      <.table rows={@tasks} table_class="text-white">
-        <:col :let={task} label="Task">
-          {worker_to_task_name(task.job.worker)}
-        </:col>
-        <:col :let={task} label="Subject" class="truncate max-w-xs">
-          <.subtle_link href={task_to_link(task)}>
-            {task_to_record_name(task)}
-          </.subtle_link>
-        </:col>
-        <:col :let={task} label="Status">
-          {format_job_state(task.job.state)}
-        </:col>
-        <:col :let={task} label="Attempt No.">
-          {task.job.attempt}
-        </:col>
-        <:col :let={task} label="Next Eligible At">
-          {format_next_eligible_at(task.job)}
-        </:col>
-        <:col :let={task} label="Last Started">
-          {format_datetime(task.job.attempted_at)}
-        </:col>
-      </.table>
+        <.table rows={@tasks} table_class="text-white">
+          <:col :let={task} label="Task">
+            {worker_to_task_name(task.job.worker)}
+          </:col>
+          <:col :let={task} label="Subject" class="truncate max-w-xs">
+            <.subtle_link href={task_to_link(task)}>
+              {task_to_record_name(task)}
+            </.subtle_link>
+          </:col>
+          <:col :let={task} label="Status">
+            {format_job_state(task.job.state)}
+          </:col>
+          <:col :let={task} label="Attempt No.">
+            {task.job.attempt}
+          </:col>
+          <:col :let={task} label="Next Eligible At">
+            {format_next_eligible_at(task.job)}
+          </:col>
+          <:col :let={task} label="Last Started">
+            {format_datetime(task.job.attempted_at)}
+          </:col>
+        </.table>
       </div>
     </div>
     """
