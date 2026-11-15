@@ -3,6 +3,7 @@ defmodule Pinchflat.Pages.JobTableLive do
   use Pinchflat.Tasks.TasksQuery
 
   alias Pinchflat.Repo
+  alias Pinchflat.Downloading.ProgressTracker
   alias Pinchflat.Tasks.Task
   alias PinchflatWeb.CustomComponents.TextComponents
 
@@ -37,6 +38,9 @@ defmodule Pinchflat.Pages.JobTableLive do
           <:col :let={task} label="Status">
             {format_job_state(task.job.state)}
           </:col>
+          <:col :let={task} label="Transfer">
+            {format_transfer(task, @progress_by_media_id)}
+          </:col>
           <:col :let={task} label="Attempt No.">
             {task.job.attempt}
           </:col>
@@ -55,7 +59,9 @@ defmodule Pinchflat.Pages.JobTableLive do
   def mount(_params, _session, socket) do
     PinchflatWeb.Endpoint.subscribe("job:state")
 
-    {:ok, assign(socket, tasks: get_tasks())}
+    if connected?(socket), do: schedule_progress_refresh()
+
+    {:ok, assign(socket, tasks: get_tasks(), progress_by_media_id: ProgressTracker.snapshot())}
   end
 
   def handle_info(%{topic: "job:state", event: "change"}, socket) do
@@ -63,8 +69,16 @@ defmodule Pinchflat.Pages.JobTableLive do
   end
 
   def handle_event("refresh_queue", _params, socket) do
-    {:noreply, assign(socket, tasks: get_tasks())}
+    {:noreply, assign(socket, tasks: get_tasks(), progress_by_media_id: ProgressTracker.snapshot())}
   end
+
+  def handle_info(:refresh_progress, socket) do
+    schedule_progress_refresh()
+
+    {:noreply, assign(socket, progress_by_media_id: ProgressTracker.snapshot())}
+  end
+
+  defp schedule_progress_refresh, do: Process.send_after(self(), :refresh_progress, 2_000)
 
   defp get_tasks do
     TasksQuery.new()
@@ -118,6 +132,64 @@ defmodule Pinchflat.Pages.JobTableLive do
   defp format_next_eligible_at(%Oban.Job{state: "executing"}), do: "In progress"
   defp format_next_eligible_at(%Oban.Job{state: "available"}), do: "Now, when a worker is free"
   defp format_next_eligible_at(%Oban.Job{scheduled_at: datetime}), do: format_datetime(datetime)
+
+  defp format_transfer(%Task{media_item_id: nil}, _progress), do: "—"
+  defp format_transfer(%Task{job: %Oban.Job{state: state}}, _progress) when state != "executing", do: "—"
+
+  defp format_transfer(%Task{media_item_id: media_item_id}, progress) do
+    case Map.get(progress, media_item_id) do
+      nil -> "Preparing download"
+      %{status: "starting"} -> "Preparing download"
+      %{status: "finished"} -> "Transferred; processing"
+      %{status: "downloading"} = data -> format_download_progress(data)
+      _ -> "Preparing download"
+    end
+  end
+
+  defp format_download_progress(data) do
+    downloaded = Map.get(data, :downloaded_bytes)
+    total = Map.get(data, :total_bytes)
+
+    completion =
+      if is_number(downloaded) && is_number(total) && total > 0 do
+        percent = Float.round(min(100.0, downloaded * 100 / total), 1)
+        estimated = if data.estimated_total?, do: " (estimated)", else: ""
+        "#{percent}% of #{format_bytes(total)}#{estimated}"
+      else
+        if is_number(downloaded), do: "#{format_bytes(downloaded)} received", else: "Downloading"
+      end
+
+    speed =
+      case Map.get(data, :speed_bytes_per_second) do
+        n when is_number(n) and n > 0 -> " at #{format_bytes(n)}/s"
+        _ -> ""
+      end
+
+    eta =
+      case Map.get(data, :eta_seconds) do
+        n when is_number(n) and n >= 0 -> " · ETA #{format_seconds(n)}"
+        _ -> ""
+      end
+
+    freshness =
+      if DateTime.diff(DateTime.utc_now(), data.updated_at) >= 180 do
+        " · No progress update for 3+ min (possibly stalled)"
+      else
+        ""
+      end
+
+    completion <> speed <> eta <> freshness
+  end
+
+  defp format_seconds(n) do
+    seconds = trunc(n)
+    "#{div(seconds, 60)}m #{rem(seconds, 60)}s"
+  end
+
+  defp format_bytes(bytes) when bytes >= 1_073_741_824, do: "#{Float.round(bytes / 1_073_741_824, 1)} GiB"
+  defp format_bytes(bytes) when bytes >= 1_048_576, do: "#{Float.round(bytes / 1_048_576, 1)} MiB"
+  defp format_bytes(bytes) when bytes >= 1_024, do: "#{Float.round(bytes / 1_024, 1)} KiB"
+  defp format_bytes(bytes), do: "#{round(bytes)} B"
 
   defp format_datetime(nil), do: ""
 
