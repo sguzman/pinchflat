@@ -7,6 +7,7 @@ defmodule PinchflatWeb.Pages.JobTableLiveTest do
   import Pinchflat.SourcesFixtures
 
   alias Pinchflat.Pages.JobTableLive
+  alias Pinchflat.Downloading.ProgressTracker
   alias Pinchflat.Downloading.MediaDownloadWorker
   alias Pinchflat.FastIndexing.FastIndexingWorker
 
@@ -61,6 +62,26 @@ defmodule PinchflatWeb.Pages.JobTableLiveTest do
       {:ok, _view, html} = live_isolated(conn, JobTableLive, session: %{})
 
       assert html =~ "Downloading Media"
+    end
+
+    test "shows live transfer percentage and speed for executing jobs", %{conn: conn} do
+      {_source, media_item, _task, _job} = create_media_item_job()
+
+      ProgressTracker.begin_download(media_item.id)
+
+      ProgressTracker.record(
+        media_item.id,
+        ~s({"status":"downloading","downloaded_bytes":512,"total_bytes":1024,"speed":256,"eta":2})
+      )
+
+      {:ok, view, html} = live_isolated(conn, JobTableLive, session: %{})
+
+      assert html =~ "50.0% of 1.0 KiB"
+      assert html =~ "256 B/s"
+      assert html =~ "ETA 0m 2s"
+
+      ProgressTracker.finish_download(media_item.id)
+      assert render_click(view, "refresh_queue") =~ "Preparing download"
     end
 
     test "shows the media item title", %{conn: conn} do
