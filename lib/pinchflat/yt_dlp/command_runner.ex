@@ -6,6 +6,7 @@ defmodule Pinchflat.YtDlp.CommandRunner do
   require Logger
 
   alias Pinchflat.Settings
+  alias Pinchflat.Downloading.ProgressOutput
   alias Pinchflat.Utils.CliUtils
   alias Pinchflat.Utils.NumberUtils
   alias Pinchflat.YtDlp.YtDlpCommandRunner
@@ -37,10 +38,28 @@ defmodule Pinchflat.YtDlp.CommandRunner do
     print_to_file_opts = [{:print_to_file, output_template}, output_filepath]
     user_configured_opts = cookie_file_options(addl_opts) ++ rate_limit_options(addl_opts) ++ misc_options()
     # These must stay in exactly this order, hence why I'm giving it its own variable.
-    all_opts = command_opts ++ print_to_file_opts ++ user_configured_opts ++ global_options()
+    progress_id = Keyword.get(addl_opts, :progress_id)
+    track_progress? = action_name == :download && is_integer(progress_id)
+    effective_command_opts = if track_progress?, do: List.delete(command_opts, :no_progress), else: command_opts
+
+    progress_opts =
+      if track_progress? do
+        [:progress, :newline, progress_delta: 1, progress_template: "download:PINCHFLAT_PROGRESS:%(progress)j"]
+      else
+        []
+      end
+
+    all_opts = effective_command_opts ++ progress_opts ++ print_to_file_opts ++ user_configured_opts ++ global_options()
     formatted_command_opts = [url] ++ CliUtils.parse_options(all_opts)
 
-    case CliUtils.wrap_cmd(backend_executable(), formatted_command_opts, stderr_to_stdout: true) do
+    runner_opts =
+      if track_progress? do
+        [stderr_to_stdout: true, lines: 4096, into: %ProgressOutput{media_item_id: progress_id}]
+      else
+        [stderr_to_stdout: true]
+      end
+
+    case CliUtils.wrap_cmd(backend_executable(), formatted_command_opts, runner_opts) do
       # yt-dlp exit codes:
       #   0 = Everything is successful
       #   100 = yt-dlp must restart for update to complete
