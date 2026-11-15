@@ -68,14 +68,14 @@ defmodule Pinchflat.Pages.JobTableLive do
     {:noreply, assign(socket, tasks: get_tasks())}
   end
 
-  def handle_event("refresh_queue", _params, socket) do
-    {:noreply, assign(socket, tasks: get_tasks(), progress_by_media_id: ProgressTracker.snapshot())}
-  end
-
   def handle_info(:refresh_progress, socket) do
     schedule_progress_refresh()
 
     {:noreply, assign(socket, progress_by_media_id: ProgressTracker.snapshot())}
+  end
+
+  def handle_event("refresh_queue", _params, socket) do
+    {:noreply, assign(socket, tasks: get_tasks(), progress_by_media_id: ProgressTracker.snapshot())}
   end
 
   defp schedule_progress_refresh, do: Process.send_after(self(), :refresh_progress, 2_000)
