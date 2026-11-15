@@ -27,16 +27,36 @@ defmodule Pinchflat.Downloading.DownloadingHelpers do
 
   Returns :ok
   """
-  def enqueue_pending_download_tasks(source, job_opts \\ [])
-
-  def enqueue_pending_download_tasks(%Source{download_media: true} = source, job_opts) do
-    source
-    |> Media.list_pending_media_items_for()
-    |> Enum.each(&MediaDownloadWorker.kickoff_with_task(&1, %{}, job_opts))
+  def enqueue_pending_download_tasks(source, job_opts \\ []) do
+    _report = enqueue_pending_download_tasks_with_report(source, job_opts)
+    :ok
   end
 
-  def enqueue_pending_download_tasks(%Source{download_media: false}, _job_opts) do
-    :ok
+  @doc """
+  Enqueues eligible pending media and returns a summary of the outcome.
+
+  Existing available, scheduled, executing, and retryable jobs are counted as
+  already queued rather than silently reported as newly enqueued.
+  This does not reschedule existing jobs.
+
+  Returns %{enqueued: integer(), already_queued: integer(), failed: integer()}
+  """
+  def enqueue_pending_download_tasks_with_report(source, job_opts \\ [])
+
+  def enqueue_pending_download_tasks_with_report(%Source{download_media: true} = source, job_opts) do
+    source
+    |> Media.list_pending_media_items_for()
+    |> Enum.reduce(%{enqueued: 0, already_queued: 0, failed: 0}, fn media_item, report ->
+      case MediaDownloadWorker.kickoff_with_task(media_item, %{}, job_opts) do
+        {:ok, _task} -> %{report | enqueued: report.enqueued + 1}
+        {:error, :duplicate_job} -> %{report | already_queued: report.already_queued + 1}
+        {:error, _reason} -> %{report | failed: report.failed + 1}
+      end
+    end)
+  end
+
+  def enqueue_pending_download_tasks_with_report(%Source{download_media: false}, _job_opts) do
+    %{enqueued: 0, already_queued: 0, failed: 0}
   end
 
   @doc """
