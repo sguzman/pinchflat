@@ -24,6 +24,7 @@ defmodule Pinchflat.Downloading.ProgressOutputTest do
       )
 
     assert output == "warning: slow connection\nERROR: connection closed"
+
     assert %{downloaded_bytes: 1024, speed_bytes_per_second: 512} =
              ProgressTracker.snapshot()[@media_id]
   end
