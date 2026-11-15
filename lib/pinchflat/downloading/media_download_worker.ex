@@ -36,8 +36,8 @@ defmodule Pinchflat.Downloading.MediaDownloadWorker do
   (unless forced).
 
   Options:
-    - `force`: force download even if the source is set to not download media. Fully
-      re-downloads media, including the video
+    - `force`: force download even if the source is set to not download media.
+      Resumes incomplete downloads; replaces existing completed downloads
     - `quality_upgrade?`: re-downloads media, including the video. Does not force download
       if the source is set to not download media
 
@@ -89,8 +89,7 @@ defmodule Pinchflat.Downloading.MediaDownloadWorker do
   end
 
   defp download_media_and_schedule_jobs(media_item, is_quality_upgrade, should_force) do
-    overwrite_behaviour = if should_force || is_quality_upgrade, do: :force_overwrites, else: :no_force_overwrites
-    override_opts = [overwrite_behaviour: overwrite_behaviour]
+    override_opts = [overwrite_behaviour: overwrite_behaviour(media_item, is_quality_upgrade, should_force)]
 
     case MediaDownloader.download_for_media_item(media_item, override_opts) do
       {:ok, downloaded_media_item} ->
@@ -113,6 +112,17 @@ defmodule Pinchflat.Downloading.MediaDownloadWorker do
 
       {:error, _error_atom, message} ->
         action_on_error(message)
+    end
+  end
+
+  # yt-dlp's --force-overwrites implies --no-continue, which discards a partial download.
+  # A manual download of an item without a completed media file must be resumable.
+  # Preserve overwrite behavior for explicit redownloads and quality upgrades.
+  defp overwrite_behaviour(media_item, is_quality_upgrade, should_force) do
+    if is_quality_upgrade || (should_force && not is_nil(media_item.media_filepath)) do
+      :force_overwrites
+    else
+      :no_force_overwrites
     end
   end
 
