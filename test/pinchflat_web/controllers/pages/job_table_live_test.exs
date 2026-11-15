@@ -14,7 +14,7 @@ defmodule PinchflatWeb.Pages.JobTableLiveTest do
     test "shows message when no records", %{conn: conn} do
       {:ok, _view, html} = live_isolated(conn, JobTableLive, session: %{})
 
-      assert html =~ "Nothing Here!"
+      assert html =~ "No running or queued tasks."
       refute html =~ "Subject"
     end
 
@@ -25,12 +25,32 @@ defmodule PinchflatWeb.Pages.JobTableLiveTest do
       assert html =~ "Subject"
     end
 
-    test "doesn't show records when not in executing state", %{conn: conn} do
-      {_source, _media_item, _task, _job} = create_media_item_job(:scheduled)
+    test "includes scheduled and retryable download jobs", %{conn: conn} do
+      {_source, scheduled_media_item, _task, _job} = create_media_item_job(:scheduled)
+      {_source, retryable_media_item, _task, _job} = create_media_item_job(:retryable)
+      {:ok, _view, html} = live_isolated(conn, JobTableLive, session: %{})
+
+      assert html =~ scheduled_media_item.title
+      assert html =~ retryable_media_item.title
+      assert html =~ "Scheduled"
+      assert html =~ "Waiting to retry"
+      assert html =~ "Next Eligible At"
+    end
+
+    test "includes available jobs as ready", %{conn: conn} do
+      {_source, media_item, _task, _job} = create_media_item_job(:available)
+      {:ok, _view, html} = live_isolated(conn, JobTableLive, session: %{})
+
+      assert html =~ media_item.title
+      assert html =~ "Ready"
+      assert html =~ "Now, when a worker is free"
+    end
+
+    test "omits completed jobs", %{conn: conn} do
       {_source, _media_item, _task, _job} = create_media_item_job(:completed)
       {:ok, _view, html} = live_isolated(conn, JobTableLive, session: %{})
 
-      assert html =~ "Nothing Here!"
+      assert html =~ "No running or queued tasks."
       refute html =~ "Subject"
     end
   end
@@ -69,6 +89,13 @@ defmodule PinchflatWeb.Pages.JobTableLiveTest do
       {:ok, _view, html} = live_isolated(conn, JobTableLive, session: %{})
 
       assert html =~ ~p"/sources/#{source.id}"
+    end
+
+    test "refreshes the task queue on demand", %{conn: conn} do
+      {:ok, view, _html} = live_isolated(conn, JobTableLive, session: %{})
+      {_source, media_item, _task, _job} = create_media_item_job(:retryable)
+
+      assert render_click(view, "refresh_queue") =~ media_item.title
     end
 
     test "listens for job:state change events", %{conn: conn} do
