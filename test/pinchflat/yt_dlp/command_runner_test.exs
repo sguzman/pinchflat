@@ -36,6 +36,20 @@ defmodule Pinchflat.YtDlp.CommandRunnerTest do
       assert String.contains?(output, "--print-to-file %(id)s /tmp/")
     end
 
+    test "streams structured progress only for tracked downloads" do
+      assert {:ok, output} = Runner.run(@media_url, :download, [:no_progress], "", progress_id: 123)
+
+      assert output =~ "--progress"
+      assert output =~ "--newline"
+      assert output =~ "--progress-delta 1"
+      assert output =~ "--progress-template download:PINCHFLAT_PROGRESS:%(progress)j"
+      refute output =~ "--no-progress"
+
+      assert {:ok, other_output} = Runner.run(@media_url, :foo, [:no_progress], "", progress_id: 123)
+      assert other_output =~ "--no-progress"
+      refute other_output =~ "--progress-template"
+    end
+
     test "returns the output and status when the command fails" do
       wrap_executable("/bin/false", fn ->
         assert {:error, "", 1} = Runner.run(@media_url, :foo, [], "")
