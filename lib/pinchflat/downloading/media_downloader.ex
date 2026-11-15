@@ -17,6 +17,7 @@ defmodule Pinchflat.Downloading.MediaDownloader do
   alias Pinchflat.Metadata.MetadataFileHelpers
   alias Pinchflat.Utils.FilesystemUtils
   alias Pinchflat.Downloading.DownloadOptionBuilder
+  alias Pinchflat.Downloading.ProgressTracker
 
   alias Pinchflat.YtDlp.Media, as: YtDlpMedia
 
@@ -164,7 +165,13 @@ defmodule Pinchflat.Downloading.MediaDownloader do
 
     case {YtDlpMedia.get_downloadable_status(url, use_cookies: should_use_cookies), should_use_cookies} do
       {{:ok, :downloadable}, _} ->
-        YtDlpMedia.download(url, options, runner_opts)
+        ProgressTracker.begin_download(item_with_preloads.id)
+
+        try do
+          YtDlpMedia.download(url, options, Keyword.put(runner_opts, :progress_id, item_with_preloads.id))
+        after
+          ProgressTracker.finish_download(item_with_preloads.id)
+        end
 
       {{:ok, :ignorable}, _} ->
         {:error, :unsuitable_for_download}
