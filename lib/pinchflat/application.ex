@@ -18,6 +18,7 @@ defmodule Pinchflat.Application do
       Pinchflat.PromEx,
       PinchflatWeb.Telemetry,
       Pinchflat.Repo,
+      Pinchflat.Downloading.ProgressTracker,
       # Must be before startup tasks
       Pinchflat.Boot.PreJobStartupTasks,
       {Oban, Application.fetch_env!(:pinchflat, Oban)},
